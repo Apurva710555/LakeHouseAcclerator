@@ -1,0 +1,288 @@
+<!-- DATA QUALITY MANAGEMENT -->
+
+<div class="container-fluid">
+  <!-- FILTERS -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <form id="dashboardForm" class="row g-3 align-items-end">
+        <!-- Domain                                                      Commented by roshan DQM (removing domain filter) -->
+        <!----        <div class="col-md-3">
+          <label class="form-label required">Domain</label>
+          <select id="domainDropdown" class="form-select">
+            <option value="">Select</option>
+            <option>Manufacturing</option>
+            <option>Sales</option>
+            <option>Connected</option>
+            <option>Services</option>
+          </select>
+        </div>
+
+--->
+        <!-- Get Tables                                                   Commented by roshan DQM (removing get table button )-->
+        <!--        <div class="col-md-2">
+          <button
+            type="button"
+            id="fetchDashboardsBtn"
+            class="btn btn-outline-orange w-100">
+            Get Tables
+          </button>
+        </div>
+--->
+        <!--   Catalog                                                    added by roshan DQM (add catalog button)-->
+        <div class="col-md-3">
+          <label class="form-label required">Catalog</label>
+          <select id="catalogDropdown" class="form-select">
+            <option value="">Select Catalog</option>
+          </select>
+        </div>
+
+        <!--   schema                                                    added by roshan DQM  (add schema button)-->
+        <div class="col-md-3">
+          <label class="form-label required">Schema</label>
+          <select id="schemaDropdown" class="form-select" disabled>
+            <option value="">Select Catalog first</option>
+          </select>
+        </div>
+
+        <!-- Tables -->
+        <div class="col-md-3">
+          <label class="form-label required">Table</label>
+          <select id="tableDropdown" class="form-select" disabled>
+            <!---id change to "tableDropdown" and md 4->3 DQM-->
+            <option value="">Select Schema first</option>
+          </select>
+        </div>
+
+        <!-- Open Dashboard -->
+        <div class="col-md-3 text-end">
+          <button
+            type="button"
+            id="loadDashboardBtn"
+            class="btn btn-orange px-4"
+          >
+            Open Dashboard
+          </button>
+        </div>
+      </form>
+
+      <p class="text-muted mt-3 mb-0">
+        <i class="bi bi-info-circle me-1"></i>
+        This section provides a high-level summary of data quality for the
+        selected data products. These insights remain unchanged regardless of
+        filters applied elsewhere.
+      </p>
+    </div>
+  </div>
+
+  <!-- DASHBOARD LOADING STATE -->
+  <!-- <div id="dashboardLoading" class="text-center text-muted my-3 d-none">
+    <div class="spinner-border text-primary mb-2"></div>
+    <div>Loading dashboard…</div>
+  </div> -->
+
+  <!-- DASHBOARD IFRAME  -->
+  <div class="col-12 mt-3">
+    <!-- Loading Placeholder (UX improvement) -->
+    <div id="dashboardLoading" class="text-center text-muted my-3 d-none">
+      <div class="spinner-border text-primary mb-2"></div>
+      <div>Loading dashboard...</div>
+    </div>
+
+    <iframe
+      id="dashboardFrame"
+      width="100%"
+      height="600"
+      frameborder="1"
+    ></iframe>
+  </div>
+</div>
+<!--23-->
+<style>
+  .tooltip-inner {
+    background-color: white !important;
+
+    color: black !important;
+
+    border: 1px solid #e4572e !important;
+  }
+
+  .tooltip.bs-tooltip-right .tooltip-arrow::before,
+  .tooltip.bs-tooltip-left .tooltip-arrow::before,
+  .tooltip.bs-tooltip-top .tooltip-arrow::before,
+  .tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+    border-color: white !important;
+  }
+</style>
+
+<!-- -----------------------------------------------------
+#  DASHBOARD WIZARD MODAL  :- added by roshan DQM
+#------------------------------------------------------->
+
+<!-- ================= DASHBOARD WIZARD MODAL ================= -->
+<div class="modal fade" id="dashboardWizardModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg mt-2">
+    <div class="modal-content">
+      <!-- Header -->
+      <div class="modal-header">
+        <h5 class="modal-title">Data Quality Configuration</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Top Left Buttons -->
+        <div class="mb-3">
+          <button id="configureTabBtn" class="btn btn-orange me-2">
+            Configure
+          </button>
+          <button id="customTabBtn" class="btn btn-outline-secondary">
+            Custom Rule
+          </button>
+        </div>
+
+        <!-- ================= CONFIGURE TAB ================= -->
+        <div id="configureTabContent">
+          <div
+            class="d-flex align-items-center justify-content-between mb-2"
+            style="width: 200px"
+          >
+            <label for="snapshotCheck" class="mb-0">Snapshot</label>
+            <input
+              type="checkbox"
+              name="dashboardType"
+              value="snapshot"
+              id="snapshotCheck"
+            />
+          </div>
+
+          <div
+            class="d-flex align-items-center justify-content-between mb-2"
+            style="width: 200px"
+          >
+            <label for="timeseriesCheck" class="mb-0">Time Series</label>
+            <input
+              type="checkbox"
+              name="dashboardType"
+              value="timeseries"
+              id="timeseriesCheck"
+            />
+          </div>
+
+          <!-- Timestamp dropdown -->
+          <div id="timestampDropdownWrapper" class="mt-3 d-none">
+            <label class="form-label">Timestamp Column</label>
+            <select class="form-select">
+              <option>Select Column</option>
+              <option>for refer created_at</option>
+              <option>for refer updated_at</option>
+            </select>
+          </div>
+
+          <!-- Next button -->
+          <div class="mt-4 d-flex justify-content-end">
+            <button type="button" id="wizardNextBtn" class="btn btn-orange">
+              Next
+            </button>
+          </div>
+        </div>
+
+        <!-- ================= CUSTOM RULE TAB ================= -->
+        <div id="customTabContent" class="d-none">
+          <h6 id="selectedTableTitle" class="fw-bold mb-3">Table:</h6>
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th>Columns</th>
+                <th>Datatypes</th>
+                <th>Rule</th>
+                <th>
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: center;
+                    "
+                  >
+                    <span>Custom Rule</span>
+                    <i
+                      class="bi bi-info-circle-fill"
+                      style="
+                        background-color: white;
+                        color: #e4572e;
+                        border-radius: 50%;
+                        width: 22px;
+                        height: 22px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 16px;
+                        cursor: pointer;
+                      "
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="right"
+                      title="For Regex rule, enter a valid regular expression pattern"
+                    >
+                    </i>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+
+            <tbody id="ruleTableBody"></tbody>
+          </table>
+
+          <!-- Bottom Buttons -->
+          <div class="d-flex justify-content-between">
+            <!-- LEFT -->
+            <button id="wizardPreviousBtn" class="btn btn-outline-orange">
+              Previous
+            </button>
+
+            <!-- RIGHT -->
+            <button id="submitWizardBtn" class="btn btn-orange">
+              Submit & Generate
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Popup -->
+<div
+  class="modal fade"
+  id="loadingPopup"
+  tabindex="-1"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false"
+>
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-center p-4 border-0 shadow-lg">
+      <div class="mb-4">
+        <div
+          class="spinner-border"
+          role="status"
+          style="width: 3rem; height: 3rem; color: #e4572e"
+        ></div>
+      </div>
+
+      <h5 class="fw-semibold mb-2">Please Wait...</h5>
+
+      <p class="fw-semiboldtext-muted mb-4" style="font-size: 14px">
+        Generating your dashboard insights 📊.
+      </p>
+
+      <button
+        type="button"
+        class="btn btn-outline-orange px-4"
+        data-bs-dismiss="modal"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
