@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 import re
 import json
+import threading
 from flask import Flask, request, render_template, jsonify
 from flask_mail import Mail, Message
 from dotenv import load_dotenv
@@ -908,26 +909,13 @@ def kill_query():
         if result.get("status") != "success":
             return jsonify(result), 409  # conflict / invalid state
 
-        # ---- AI optimization (non-blocking) ----
-        optimized_query = None
-
-        try:
-            if original_query:
-                # print("inside if of original_query back")
-                optimized_query = get_optimized_query_from_ai(original_query)
-        except Exception as e:
-            print("[WARN] AI optimization failed:", str(e))
-
-        # ---- Email sending (non-blocking) ----
-        try:
-            send_kill_email(
-                to_email=user,
-                query_id=query_id,
-                original_query=original_query,
-                optimized_query=optimized_query,
-            )
-        except Exception as e:
-            print("[WARN] Failed to send kill email:", str(e))
+        # Made changes to send the kill response first and then optimization part and send mail - Query Data 25-2-26
+        thread = threading.Thread(
+            target=background_tasks,
+            args=(query_id, user, original_query),
+        )
+        thread.daemon = True
+        thread.start()
 
         # ✅ Kill succeeded regardless of AI/email
         return (
@@ -943,8 +931,26 @@ def kill_query():
     except Exception as e:
         print("[API] Exception in kill_query:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
+# Function to offload the AI optimization and send mail functionality - Query Data 25-2-26
+def background_tasks(query_id, user, original_query):
+    with app.app_context():
+        optimized_query = None
 
+        try:
+            if original_query:
+                optimized_query = get_optimized_query_from_ai(original_query)
+        except Exception as e:
+            print("[WARN] AI optimization failed:", str(e))
 
+        try:
+            send_kill_email(
+                to_email=user,
+                query_id=query_id,
+                original_query=original_query,
+                optimized_query=optimized_query,
+            )
+        except Exception as e:
+            print("[WARN] Failed to send kill email:", str(e))
 # @app.route("/api/workspaces", methods=["GET"])
 # def list_workspaces():
 #     try:
@@ -990,16 +996,16 @@ def kill_query():
 def get_query_status():
     try:
         # limit = int(request.args.get("limit", 5))
-        print("Inside query status")
+        # print("Inside query status")
         workspace_id = request.args.get("workspace_id")
         workspace_instance = WORKSPACE_INSTANCE  # default workspace
         warehouse_id = request.args.get("warehouse_id")
         status_filter = request.args.get("status")
         user_filter = request.args.get("user")
-        print("user_filter", user_filter)
-        print("status_filter", status_filter)
+        # print("user_filter", user_filter)
+        # print("status_filter", status_filter)
 
-        since_minutes = request.args.get("since_minutes", type=int)
+        # since_minutes = request.args.get("since_minutes", type=int)
         hours = request.args.get("hours", type=int, default=0)
         minutes = request.args.get("minutes", type=int, default=0)
         seconds = request.args.get("seconds", type=int, default=0)
@@ -1069,7 +1075,7 @@ def get_query_status():
         queries = data.get("res", [])
         # print("TOTAL QUERIES FROM DBX:", queries)
         # print("resp", r)
-        print("queries: ", queries[0].get("user_name"))
+        # print("queries: ", queries[0].get("user_name"))
         results = []
 
         for q in queries:
@@ -1111,7 +1117,6 @@ def get_query_status():
 
             # duration_sec = round((end - start) / 1000, 2)
             # print("duration_sec: ", duration_sec)
-            print("append ke upar")
             results.append(
                 {
                     "query_id": q.get("query_id"),
@@ -1123,10 +1128,10 @@ def get_query_status():
                 }
             )
 
-        print("RESULTSSSSSS_before sortin", results)
+        # print("RESULTSSSSSS_before sortin", results)
 
         results.sort(key=lambda x: x["duration"], reverse=True)
-        print("RESULTSSSSSS", results)
+        # print("RESULTSSSSSS", results)
         return jsonify(results)
 
     except Exception as e:
