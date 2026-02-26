@@ -1,3 +1,4 @@
+
 import os
 import pandas as pd
 import requests
@@ -8,7 +9,6 @@ from flask import Flask, request, render_template, jsonify
 from flask_mail import Mail, Message
 from dotenv import load_dotenv
 from dbx_auth import get_dbx_access_token
-
 # from handlers import *
 # from logger_utils import (
 #     append_audit,
@@ -19,7 +19,6 @@ from dbx_auth import get_dbx_access_token
 # from datetime import datetime
 # from databricks_api import scim_me_workspace
 import google.generativeai as genai
-
 print("------------SP token-------------")
 print(get_dbx_access_token()[:20])
 print("------------SP token-------------")
@@ -44,18 +43,13 @@ else:
     print(f"[INFO] Using Databricks workspace: {DATABRICKS_INSTANCE}")
 
 from handlers import *
-from logger_utils import (
-    append_audit,
-    read_audit,
-    set_audit_context,
-    clear_audit_context,
-)
+from logger_utils import append_audit, read_audit, set_audit_context, clear_audit_context
 from datetime import datetime
 from databricks_api import scim_me_workspace
 
 app = Flask(__name__, template_folder="templates")
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change_me")
-# app.config['MAIL_DEFAULT_SENDER'] = os.getenv('EMAIL_FROM', os.getenv('MAIL_DEFAULT_SENDER', ''))
+#app.config['MAIL_DEFAULT_SENDER'] = os.getenv('EMAIL_FROM', os.getenv('MAIL_DEFAULT_SENDER', ''))
 app.config["MAIL_SERVER"] = os.getenv(
     "SMTP_SERVER", os.getenv("MAIL_SERVER", "smtp.example.com")
 )
@@ -71,21 +65,21 @@ app.config["MAIL_PASSWORD"] = os.getenv("SMTP_PASS", os.getenv("MAIL_PASSWORD", 
 app.config["MAIL_DEFAULT_SENDER"] = os.getenv(
     "EMAIL_FROM", os.getenv("MAIL_DEFAULT_SENDER", "")
 )
-mail = Mail(app)
+mail = Mail(app)                                         
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
+ 
 model = genai.GenerativeModel("models/gemini-2.5-flash")
 # @app.route("/")
 # def home():
 #     """Render upload form."""
 #     return render_template("index.html")
 
-
 @app.route("/")
 def home():
     return render_template(
         "index.html",
         DATABRICKS_HOST=WORKSPACE_INSTANCE,
+        
     )
 
 
@@ -95,9 +89,7 @@ def run_action():
     results = []
     clear_audit_context()
     # Set request-scoped audit context
-    run_id = (
-        f"sync_{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}_{os.urandom(4).hex()}"
-    )
+    run_id = f"sync_{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}_{os.urandom(4).hex()}"
     set_audit_context(
         run_id=run_id,
         run_by=request.headers.get("X-User-Email") or os.getenv("RUN_BY") or "",
@@ -135,9 +127,7 @@ def run_action():
             "appName": request.form.get("appName", ""),
             "env": request.form.get("env", ""),
         }
-        set_audit_context(
-            admin=row.get("admin"), file_path="", row_id=0, request_payload=row
-        )
+        set_audit_context(admin=row.get("admin"), file_path="", row_id=0, request_payload=row)
         results.append(process_row(0, row))
 
     # Build acknowledgment summary
@@ -186,12 +176,7 @@ def process_row(ix, row):
             append_audit(action, "unknown", "", "FAILED", "unknown action")
             resp = {"error": f"unknown action: {action}"}
     except Exception as e:
-        identifier = str(
-            row.get("user_email") or construct_group_name(row)
-            if row.get("action")
-            in ["CREATE_GROUP", "ADD_TO_GROUP", "REMOVE_FROM_GROUP", "UPDATE_GROUP"]
-            else ""
-        )
+        identifier = str(row.get("user_email") or construct_group_name(row) if row.get("action") in ["CREATE_GROUP", "ADD_TO_GROUP", "REMOVE_FROM_GROUP", "UPDATE_GROUP"] else "")
         append_audit(action, "error", identifier, "FAILED", str(e))
         resp = {"error": str(e)}
 
@@ -199,17 +184,9 @@ def process_row(ix, row):
         "row": ix,
         "action": action,
         "principal_type": row.get("principal_type", ""),
-        "identifier": row.get("user_email")
-        or (
-            construct_group_name(row)
-            if action in ["CREATE_GROUP", "ADD_TO_GROUP", "REMOVE_FROM_GROUP"]
-            else ""
-        )
-        or row.get("admin")
-        or "",
+        "identifier": row.get("user_email") or (construct_group_name(row) if action in ["CREATE_GROUP", "ADD_TO_GROUP", "REMOVE_FROM_GROUP"] else "") or row.get("admin") or "",
         "result": resp,
     }
-
 
 @app.route("/project-onboard", methods=["GET", "POST"])
 def onboard_project():
@@ -220,15 +197,17 @@ def onboard_project():
 
         run_id = f"onboard_{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}_{os.urandom(4).hex()}"
         run_by_email = request.headers.get("X-User-Email") or os.getenv("RUN_BY") or ""
-        set_audit_context(run_id=run_id, run_by=run_by_email, action="ONBOARD_PROJECT")
+        set_audit_context(
+            run_id=run_id,
+            run_by=run_by_email,
+            action="ONBOARD_PROJECT"
+        )
 
         form_data = {
             "cluster_type": request.form.get("cluster_type"),
             "sql_wh_size": request.form.get("sql_wh_size"),
             "node_type_id": request.form.get("node_type_id"),
-            "base_workers": request.form.get(
-                "base_workers"
-            ),  # Handled as string, converted in handler
+            "base_workers": request.form.get("base_workers"), # Handled as string, converted in handler
             "department": request.form.get("department"),
             "organization_name": request.form.get("organization_name"),
             "application_owner_email": request.form.get("application_owner_email"),
@@ -236,20 +215,20 @@ def onboard_project():
             "application_owner": request.form.get("application_owner"),
             "business_owner": request.form.get("business_owner"),
             "cost_center": request.form.get("cost_center"),
-            "environment": request.form.get("env", ""),
+            "environment": request.form.get("env", ""), 
         }
         set_audit_context(row_id=0, request_payload=form_data)
         app_name = form_data.get("application_name") or "unknown_project"
 
-        environment = form_data["environment"]
-        print("[INFO] Selected Environment: ", environment)
-
+        environment = form_data['environment']
+        print('[INFO] Selected Environment: ', environment)
+        
         try:
             # Call the new handler
             results = onboard_project_handler(form_data)
             message = f"Project '{app_name}' Onboarded Successfully. Below are the details of the resources provisioned:"
             status_code = 200
-
+            
         except Exception as e:
             # Log the failure in the audit trail
             append_audit("ONBOARD_PROJECT", "project", app_name, "FAILED", str(e))
@@ -258,11 +237,7 @@ def onboard_project():
             status_code = 500
 
         # Render a dedicated result page for onboarding
-        return (
-            render_template("result_po.html", result=results, message=message),
-            status_code,
-        )
-
+        return render_template("result_po.html", result=results, message=message), status_code
 
 @app.route("/audit", methods=["GET"])
 def audit():
@@ -279,31 +254,28 @@ def audit():
         # Parse query parameters
         limit = int(request.args.get("limit", 1000))
         format_type = request.args.get("format", "json").lower()
-
+        
         # Build filters
         filters = {}
         for key in ["action", "status", "run_id", "principal_type"]:
             value = request.args.get(key)
             if value:
                 filters[key] = value
-
+        
         # Read audit logs
         df = read_audit(limit=limit, filters=filters if filters else None)
-
+        
         # Return in requested format
         if format_type == "csv":
             from flask import make_response
-
             csv_data = df.to_csv(index=False)
             response = make_response(csv_data)
-            response.headers["Content-Disposition"] = (
-                "attachment; filename=audit_log.csv"
-            )
+            response.headers["Content-Disposition"] = "attachment; filename=audit_log.csv"
             response.headers["Content-Type"] = "text/csv"
             return response
         else:
             return jsonify(df.to_dict(orient="records"))
-
+    
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -316,83 +288,62 @@ def me():
         status = resp.get("status_code")
         body = resp.get("body") or {}
         if status != 200:
-            return (
-                jsonify({"error": True, "message": str(resp.get("error") or body)}),
-                500,
-            )
+            return jsonify({"error": True, "message": str(resp.get("error") or body)}), 500
         # SCIM user typically has userName and emails list
         email = body.get("userName") or (body.get("emails") or [{}])[0].get("value")
-        display = (
-            body.get("displayName")
-            or (body.get("name") or {}).get("formatted")
-            or email
-        )
+        display = body.get("displayName") or (body.get("name") or {}).get("formatted") or email
         return jsonify({"email": email, "displayName": display})
     except Exception as e:
         return jsonify({"error": True, "message": str(e)}), 500
 
 
-@app.route("/notify-owner", methods=["POST"])
+@app.route('/notify-owner', methods=['POST'])
 def notify_owner():
     data = request.get_json()
-    result = data.get("result", {})
-    owner_email = result.get("application_owner_email") or os.getenv(
-        "MAIL_DEFAULT_SENDER"
-    )
-    app_name = result.get("application_name")
-    owner = result.get("application_owner")
-    environment = result.get("environment")
-    # workspace_prefix = f"deep.{environment}.cv.tatamotors"
+    result = data.get('result', {})
+    owner_email = result.get('application_owner_email') or os.getenv('MAIL_DEFAULT_SENDER')
+    app_name = result.get('application_name')
+    owner = result.get('application_owner')
+    environment = result.get('environment')
+    #workspace_prefix = f"deep.{environment}.cv.tatamotors"
     workspace_prefix = f"deep.{environment}.deep"
 
     workspace_url = f"https://{workspace_prefix}"
 
     table_rows = []
-    if result.get("folder_path"):
-        table_rows.append(
-            f"<tr><td>Project Folder</td><td>{result.get('application_name', '')}</td><td>{result['folder_path']}</td><td>Success</td></tr>"
-        )
-    if result.get("cluster_id"):
-        table_rows.append(
-            f"<tr><td>All-Purpose Cluster</td><td>{result.get('application_name', '')}</td><td>{result['cluster_id']}</td><td>Success</td></tr>"
-        )
-    if result.get("sql_wh_id"):
-        table_rows.append(
-            f"<tr><td>SQL Warehouse</td><td>{result.get('application_name', '')}_reporting_wh</td><td>{result['sql_wh_id']}</td><td>Success</td></tr>"
-        )
-    if result.get("groups"):
-        for group in result["groups"]:
-            table_rows.append(
-                f"<tr><td>Group</td><td>{group}</td><td>-</td><td>Success</td></tr>"
-            )
-    if result.get("uc_schema_full_name"):
-        uc_schema_name = result["uc_schema_full_name"]
-        uc_storage_root = result.get("uc_storage_root", "N/A")
-        table_rows.append(
-            f"<tr><td>Project Schema</td><td>{uc_schema_name}</td><td>{uc_storage_root}</td><td>Success</td></tr>"
-        )
+    if result.get('folder_path'):
+        table_rows.append(f"<tr><td>Project Folder</td><td>{result.get('application_name', '')}</td><td>{result['folder_path']}</td><td>Success</td></tr>")
+    if result.get('cluster_id'):
+        table_rows.append(f"<tr><td>All-Purpose Cluster</td><td>{result.get('application_name', '')}</td><td>{result['cluster_id']}</td><td>Success</td></tr>")
+    if result.get('sql_wh_id'):
+        table_rows.append(f"<tr><td>SQL Warehouse</td><td>{result.get('application_name', '')}_reporting_wh</td><td>{result['sql_wh_id']}</td><td>Success</td></tr>")
+    if result.get('groups'):
+        for group in result['groups']:
+            table_rows.append(f"<tr><td>Group</td><td>{group}</td><td>-</td><td>Success</td></tr>")
+    if result.get('uc_schema_full_name'):
+        uc_schema_name = result['uc_schema_full_name']
+        uc_storage_root = result.get('uc_storage_root', 'N/A')
+        table_rows.append(f"<tr><td>Project Schema</td><td>{uc_schema_name}</td><td>{uc_storage_root}</td><td>Success</td></tr>")
     if not table_rows:
         table_rows.append('<tr><td colspan="4">No Resources Found.</td></tr>')
-
+    
     html_body = render_template(
         "email.html",
         owner=owner,
         app_name=app_name,
         workspace_url=workspace_url,
         table_rows=table_rows,
-        result=result,
+        result=result
     )
     try:
-        msg = Message(
-            subject=f"DEEP Resources Provisioned: {app_name}",
-            recipients=[owner_email],
-            cc=["faguni.dhiman@exponentia.ai", "nethaji.kamalapuram@exponentia.ai"],
-            html=html_body,
-        )
+        msg = Message(subject=f"DEEP Resources Provisioned: {app_name}",
+                      recipients=[owner_email],
+                      cc=["faguni.dhiman@exponentia.ai", "nethaji.kamalapuram@exponentia.ai"],
+                      html=html_body)
         mail.send(msg)
-        return jsonify({"message": f"Notification Sent Successfully!"}), 200
+        return jsonify({'message': f'Notification Sent Successfully!'}), 200
     except Exception as e:
-        return jsonify({"message": f"Failed to send email: {str(e)}"}), 500
+        return jsonify({'message': f'Failed to send email: {str(e)}'}), 500
 
 
 # -------------------- GET ALL DASHBOARDS -------------------------
@@ -402,12 +353,7 @@ def get_dashboard_url(dashboard_id: str) -> str:
     """
     return f"{WORKSPACE_INSTANCE}/embed/dashboardsv3/{dashboard_id}?o={ORG_ID}"
 
-
-# -----------------------------------------------------
-#  commented list_dashboard (DQM)  :- added by roshan DQM
-# -----------------------------------------------------
-
-"""@app.route("/api/list_dashboards", methods=['GET'])
+@app.route("/api/list_dashboards", methods=['GET'])
 def list_dashboards():
     domain = (request.args.get("domain") or "").strip().lower()
     print(f"domain: {domain}")
@@ -435,65 +381,9 @@ def list_dashboards():
     filtered_dashboards = df_domain.to_dict(orient="records")
     print(f"filtered_dashboards: {filtered_dashboards}")
     
-    return jsonify({"domain": domain, "dashboard_list": filtered_dashboards})"""
-
-
-# -----------------------------------------------------
-#  Update list_dashboard (DQM) :- added by roshan DQM
-# -----------------------------------------------------
-@app.route("/api/list_dashboards", methods=["GET"])
-def list_dashboards():
-
-    catalog = (request.args.get("catalog") or "").strip().lower()
-    schema = (request.args.get("schema") or "").strip().lower()
-    table = (request.args.get("table") or "").strip().lower()
-
-    print(f"catalog: {catalog}, schema: {schema}, table: {table}")
-
-    if not catalog or not schema or not table:
-        return jsonify({"dashboard_list": []})
-
-    # Get dashboards properly
-    response = get_dashboards_list_handler()
-    dashboards = response.get("dashboard_list", [])
-
-    if not dashboards:
-        return jsonify({"dashboard_list": []})
-
-    df = pd.DataFrame(dashboards)
-
-    if "name" not in df.columns or "id" not in df.columns:
-        return jsonify({"dashboard_list": []})
-
-    # Expected full name pattern
-    full_identifier = f"{catalog}.{schema}.{table}".lower()
-
-    df_filtered = df[
-        df["name"].str.lower().str.contains(full_identifier, na=False)
-        & df["name"].str.lower().str.endswith("monitoring.")
-    ]
-
-    print("FILTER RESULT COUNT:", len(df_filtered))
-
-    if df_filtered.empty:
-        return jsonify({"dashboard_list": []})
-
-    # Build dashboard URL
-    df_filtered["dashboard_url"] = df_filtered["id"].apply(get_dashboard_url)
-
-    return jsonify(
-        {
-            "catalog": catalog,
-            "schema": schema,
-            "table": table,
-            "dashboard_list": df_filtered.to_dict(orient="records"),
-        }
-    )
-
-
-# ----------------END HERE list_dashboards----------------------------------------------------------
-
-# job Monitoring
+    return jsonify({"domain": domain, "dashboard_list": filtered_dashboards})
+    
+#job Monitoring
 # @app.route("/api/jobs", methods=["GET"])
 # def list_jobs():
 #     try:
@@ -507,51 +397,49 @@ def list_dashboards():
 #     except Exception as e:
 #         return jsonify({"error": str(e)}), 500
 
-
 # chnages done in list_jobs neww by adesh 16/02/26
 # job Monitoring
 @app.route("/api/jobs", methods=["GET"])
 def list_jobs():
     try:
         workspace_id = request.args.get("workspace_id")
-
+ 
         if not workspace_id:
             return jsonify({"error": "workspace_id required"}), 400
-
+ 
         headers = {
             "Authorization": f"Bearer {get_dbx_access_token()}",
             "Content-Type": "application/json",
         }
-
+ 
         ACCOUNT_HOST = "https://accounts.cloud.databricks.com"
         ACCOUNT_ID = os.getenv("ACCOUNT_ID")
-
+ 
         # Get workspace details
         ws_url = (
             f"{ACCOUNT_HOST}/api/2.0/accounts/{ACCOUNT_ID}/workspaces/{workspace_id}"
         )
         ws_resp = requests.get(ws_url, headers=headers, timeout=20)
         ws_resp.raise_for_status()
-
+ 
         workspace_data = ws_resp.json()
-
+ 
         deployment_name = workspace_data.get("deployment_name")
-
+ 
         if not deployment_name:
             return jsonify({"error": "deployment_name not found"}), 500
-
+ 
         workspace_url = f"https://{deployment_name}.cloud.databricks.com"
-
+ 
         # Call jobs API
         jobs_url = f"{workspace_url}/api/2.1/jobs/list"
         jobs_resp = requests.get(jobs_url, headers=headers, timeout=30)
         jobs_resp.raise_for_status()
-
+ 
         return jsonify(jobs_resp.json())
-
+ 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # @app.route("/api/jobs/run", methods=["POST"])
 # def run_job():
@@ -572,13 +460,13 @@ def list_jobs():
 
 # @app.route("/settings")
 # def setting_page():
-#     return render_template("settings.html")
+#     return render_template("settings.html")    
 
+    
 
 # @app.route("/help")
 # def help_page():
-#     return render_template("help.html")
-
+#     return render_template("help.html")    
 
 @app.route("/api/jobs/run", methods=["POST"])
 def run_job():
@@ -586,74 +474,74 @@ def run_job():
         job_id = request.json.get("job_id")
         if not job_id:
             return jsonify({"error": "job_id not provided"}), 400
-
+ 
         headers = {
             "Authorization": f"Bearer {get_dbx_access_token()}",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
         }
-
+ 
         # 1 Trigger job run
         url = f"{WORKSPACE_INSTANCE}/api/2.1/jobs/run-now"
         resp = requests.post(url, headers=headers, json={"job_id": job_id}, timeout=30)
         resp.raise_for_status()
-
+ 
         run_data = resp.json()
         run_id = run_data.get("run_id")
-
+ 
         # 2 Wait few seconds before checking status
         import time
-
         time.sleep(5)
-
+ 
         # 3 Check run status
         status_url = f"{WORKSPACE_INSTANCE}/api/2.1/jobs/runs/get"
         status_resp = requests.get(
-            status_url, headers=headers, params={"run_id": run_id}, timeout=30
+            status_url,
+            headers=headers,
+            params={"run_id": run_id},
+            timeout=30
         )
         status_resp.raise_for_status()
-
+ 
         state = status_resp.json().get("state", {})
         status = state.get("result_state")
-
+ 
         # Send mail only if FAILED
         if status == "FAILED":
             send_job_failure_or_cancel_mail(run_id)
-
+ 
         return jsonify(run_data), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-        # ---------------------------------------------------END
-
-
+        #---------------------------------------------------END
 # @app.route("/api/query-status", methods=["GET"])
 # def get_query_status():
 #     try:
 #         limit = int(request.args.get("limit", 10))
 #         warehouse_id = request.args.get("warehouse_id")
 #         status_filter = request.args.get("status")
-
+ 
 #         # if not warehouse_id:
 #         #     return jsonify({"error": "warehouse_id is required"}), 400
-
+ 
 #         # ✅ FIX: normalize status filter
 #         if status_filter and status_filter.upper() == "ALL":
 #             status_filter = None
-
+ 
 #         url = f"{WORKSPACE_INSTANCE}/api/2.0/sql/history/queries"
 #         headers = {
 #             "Authorization": f"Bearer {get_dbx_access_token()}",
 #             "Content-Type": "application/json"
 #         }
-
+ 
 #         now_ms = int(time.time() * 1000)
 #         last_24h_ms = now_ms - (24 * 60 * 60 * 1000)
-
+ 
 #         # params = {
 #         #     "max_results": 100,
 #         #     "started_after_ms": last_24h_ms,
 #         #     "warehouse_id": warehouse_id
 #         # }
-
+ 
 #         r = requests.get(url, headers=headers)
 #         # data = resp.json()
 #         print("STATUS CODE:", r.status_code)
@@ -663,29 +551,29 @@ def run_job():
 #         print(data["has_next_page"], data.get("next_page_token"))
 #         for q in data["res"]:
 #             print(q["query_id"], q["status"], q.get("query_text", "")[:60])
-
-
+ 
+ 
 #         #resp.raise_for_status()
-
+ 
 #         queries = r.json().get("res", [])
 #         print("TOTAL QUERIES FROM DBX:", queries)
 #         #print("resp", r)
-
+ 
 #         results = []
-
+ 
 #         for q in queries:
 #             status = q.get("status")
-
+ 
 #             if status_filter and status != status_filter:
 #                 continue
-
+ 
 #             start = q.get("query_start_time_ms")
 #             end = q.get("query_end_time_ms") or now_ms
 #             if not start:
 #                 continue
-
+ 
 #             duration_sec = round((end - start) / 1000, 2)
-
+ 
 #             results.append({
 #                 "query_id": q.get("query_id"),
 #                 "status": status,
@@ -693,13 +581,14 @@ def run_job():
 #                 "duration": duration_sec,
 #                 "user": q.get("user_name")
 #             })
-
+ 
 #         results.sort(key=lambda x: x["duration"], reverse=True)
-
+ 
 #         return jsonify(results[:limit])
-
+ 
 #     except Exception as e:
 #         return jsonify({"error": str(e)}), 500
+    
 
 
 # @app.route("/api/jobs/<int:job_id>/latest-run", methods=["GET"])
@@ -709,14 +598,14 @@ def run_job():
 #             "Authorization": f"Bearer {get_dbx_access_token()}",
 #             "Content-Type": "application/json"
 #         }
-
+ 
 #         url = f"{WORKSPACE_INSTANCE}/api/2.1/jobs/runs/list"
 #         params = {
 #             "job_id": job_id,
 #             "limit": 5,              # last 5 runs
 #             "active_only": "false"
 #         }
-
+ 
 #         resp = requests.get(
 #             url,
 #             headers=headers,
@@ -724,11 +613,11 @@ def run_job():
 #             timeout=30
 #         )
 #         resp.raise_for_status()
-
+ 
 #         runs = resp.json().get("runs", [])
 #         if not runs:
 #             return jsonify([])
-
+ 
 #         return jsonify([
 #             {
 #                 "run_id": run.get("run_id"),
@@ -745,10 +634,9 @@ def run_job():
 #             }
 #             for run in runs
 #         ])
-
+ 
 #     except Exception as e:
 #         return jsonify({"error": str(e)}), 500
-
 
 # ---------------------------------------------------------
 # GET LATEST JOB RUN (STATUS + HISTORY)
@@ -760,42 +648,42 @@ def run_job():
 def get_latest_job_run(job_id):
     try:
         workspace_id = request.args.get("workspace_id")
-
+ 
         if not workspace_id:
             return jsonify({"error": "workspace_id required"}), 400
-
+ 
         headers = {
             "Authorization": f"Bearer {get_dbx_access_token()}",
             "Content-Type": "application/json",
         }
-
+ 
         ACCOUNT_HOST = "https://accounts.cloud.databricks.com"
         ACCOUNT_ID = os.getenv("ACCOUNT_ID")
-
+ 
         # Get workspace deployment name
         ws_url = (
             f"{ACCOUNT_HOST}/api/2.0/accounts/{ACCOUNT_ID}/workspaces/{workspace_id}"
         )
         ws_resp = requests.get(ws_url, headers=headers, timeout=20)
         ws_resp.raise_for_status()
-
+ 
         workspace_data = ws_resp.json()
         deployment_name = workspace_data.get("deployment_name")
-
+ 
         if not deployment_name:
             return jsonify({"error": "deployment_name not found"}), 500
-
+ 
         workspace_url = f"https://{deployment_name}.cloud.databricks.com"
-
+ 
         # Now call correct workspace
         url = f"{workspace_url}/api/2.1/jobs/runs/list"
         params = {"job_id": job_id, "limit": 5, "active_only": "false"}
-
+ 
         resp = requests.get(url, headers=headers, params=params, timeout=30)
         resp.raise_for_status()
-
+ 
         runs = resp.json().get("runs", [])
-
+ 
         results = []
         for run in runs:
             state = run.get("state", {})
@@ -808,84 +696,142 @@ def get_latest_job_run(job_id):
                     "history": run.get("end_time"),
                 }
             )
-
+ 
         return jsonify(results)
-
+ 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
+        return jsonify({"error": str(e)}), 500 
+ 
 # ---------------------------------------------------------
 # STOP THE RUNNING JOB
 # ---------------------------------------------------------
-
+ 
 # @app.route("/api/jobs/runs/cancel", methods=["POST"])
 # def cancel_job_run():
 #     try:
 #         run_id = request.json.get("run_id")
 #         if not run_id:
 #             return jsonify({"error": "run_id required"}), 400
-
+ 
 #         headers = {
 #             "Authorization": f"Bearer {get_dbx_access_token()}",
 #             "Content-Type": "application/json"
 #         }
-
+ 
 #         url = f"{WORKSPACE_INSTANCE}/api/2.1/jobs/runs/cancel"
 #         resp = requests.post(url, headers=headers, json={"run_id": run_id}, timeout=30)
 #         resp.raise_for_status()
-
+ 
 #         return jsonify({"message": "Run canceled successfully"})
-
+ 
 #     except Exception as e:
 #         return jsonify({"error": str(e)}), 500
 
-
-@app.route(
-    "/api/jobs/runs/cancel", methods=["POST"]
-)  # --- compelety edited by Roshan (For mail)
+@app.route("/api/jobs/runs/cancel", methods=["POST"])           #--- compelety edited by Roshan (For mail)
 def cancel_job_run():
     try:
         run_id = request.json.get("run_id")
         if not run_id:
             return jsonify({"error": "run_id required"}), 400
-
+ 
         headers = {
             "Authorization": f"Bearer {get_dbx_access_token()}",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
         }
-
+ 
         # 1 Send cancel request
         url = f"{WORKSPACE_INSTANCE}/api/2.1/jobs/runs/cancel"
         resp = requests.post(url, headers=headers, json={"run_id": run_id}, timeout=30)
         resp.raise_for_status()
-
+ 
         # 2 Wait until Databricks marks it as CANCELED
         import time
-
         status_url = f"{WORKSPACE_INSTANCE}/api/2.1/jobs/runs/get"
-
+ 
         for _ in range(10):  # check for max 20 seconds
             time.sleep(2)
-
+ 
             check_resp = requests.get(
-                status_url, headers=headers, params={"run_id": run_id}, timeout=30
+                status_url,
+                headers=headers,
+                params={"run_id": run_id},
+                timeout=30
             )
             check_resp.raise_for_status()
-
+ 
             state = check_resp.json().get("state", {})
             status = state.get("result_state") or state.get("life_cycle_state")
-
+ 
             if status == "CANCELED":
                 send_job_failure_or_cancel_mail(run_id)
                 break
-
+ 
         return jsonify({"message": "Run canceled successfully"})
-
+ 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e)}), 500    
 
 
+# @app.route("/api/query/kill", methods=["POST"])
+# def kill_query():
+    try:
+        print("[API] /api/query/kill called")
+ 
+        data = request.get_json(silent=True) or {}
+        query_id = data.get("query_id")
+        user = data.get("user")
+        original_query = data.get("query_text")
+ 
+        if not query_id:
+            return jsonify({"status": "failed", "message": "query_id is required"}), 400
+ 
+        # print(f"[API] Kill request for query_id={query_id}, user={user}")
+ 
+        from databricks_api import cancel_sql_query
+ 
+        result = cancel_sql_query(query_id, user)
+        # print("[API] cancel_sql_query result:", result)
+ 
+        if result.get("status") != "success":
+            return jsonify(result), 409  # conflict / invalid state
+ 
+        # ---- AI optimization (non-blocking) ----
+        optimized_query = None
+ 
+        try:
+            if original_query:
+                # print("inside if of original_query back")
+                optimized_query = get_optimized_query_from_ai(original_query)
+        except Exception as e:
+            print("[WARN] AI optimization failed:", str(e))
+ 
+        # ---- Email sending (non-blocking) ----
+        try:
+            send_kill_email(
+                to_email=user,
+                query_id=query_id,
+                original_query=original_query,
+                optimized_query=optimized_query,
+            )
+        except Exception as e:
+            print("[WARN] Failed to send kill email:", str(e))
+ 
+        # ✅ Kill succeeded regardless of AI/email
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "message": f"Query {query_id} cancelled successfully",
+                }
+            ),
+            200,
+        )
+ 
+    except Exception as e:
+        print("[API] Exception in kill_query:", str(e))
+        return jsonify({"status": "error", "message": str(e)}), 500
+ 
+ 
 @app.route("/api/query/kill", methods=["POST"])
 def kill_query():
     try:
@@ -931,6 +877,8 @@ def kill_query():
     except Exception as e:
         print("[API] Exception in kill_query:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
+    
+    
 # Function to offload the AI optimization and send mail functionality - Query Data 25-2-26
 def background_tasks(query_id, user, original_query):
     with app.app_context():
@@ -944,7 +892,7 @@ def background_tasks(query_id, user, original_query):
 
         try:
             send_kill_email(
-                to_email=user,
+                to_email="apurva.muthaye@exponentia.ai",
                 query_id=query_id,
                 original_query=original_query,
                 optimized_query=optimized_query,
@@ -958,24 +906,24 @@ def background_tasks(query_id, user, original_query):
 #             "Authorization": f"Bearer {get_dbx_access_token()}",
 #             "Content-Type": "application/json",
 #         }
-
+ 
 #         ACCOUNT_HOST = "https://accounts.cloud.databricks.com"
 #         ACCOUNT_ID = os.getenv("ACCOUNT_ID")
-
+ 
 #         url = f"{ACCOUNT_HOST}/api/2.0/accounts/{ACCOUNT_ID}/workspaces"
-
+ 
 #         resp = requests.get(url, headers=headers, timeout=20)
 #         resp.raise_for_status()
-
+ 
 #         data = resp.json()
-
+ 
 #         if isinstance(data, dict):
 #             workspaces = data.get("workspaces", [])
 #         elif isinstance(data, list):
 #             workspaces = data
 #         else:
 #             workspaces = []
-
+ 
 #         result = [
 #             {
 #                 "workspace_id": ws.get("workspace_id"),
@@ -984,68 +932,70 @@ def background_tasks(query_id, user, original_query):
 #             }
 #             for ws in workspaces
 #         ]
-
+ 
 #         return jsonify(result)
-
+ 
 #     except Exception as e:
 #         print("Workspace fetch error:", str(e))
 #         return jsonify({"error": str(e)}), 500
+ 
+ 
 
 
 @app.route("/api/query-status", methods=["GET"])
 def get_query_status():
     try:
         # limit = int(request.args.get("limit", 5))
-        # print("Inside query status")
+        print("Inside query status")
         workspace_id = request.args.get("workspace_id")
         workspace_instance = WORKSPACE_INSTANCE  # default workspace
         warehouse_id = request.args.get("warehouse_id")
         status_filter = request.args.get("status")
-        user_filter = request.args.get("user")
-        # print("user_filter", user_filter)
-        # print("status_filter", status_filter)
-
-        # since_minutes = request.args.get("since_minutes", type=int)
+        user_filter = request.args.get("user")  
+        print("user_filter",user_filter)
+        print("status_filter",status_filter)
+ 
+        since_minutes = request.args.get("since_minutes", type=int)
         hours = request.args.get("hours", type=int, default=0)
         minutes = request.args.get("minutes", type=int, default=0)
         seconds = request.args.get("seconds", type=int, default=0)
-
+ 
         # print("since_minutes :", since_minutes)
         # if not warehouse_id:
         #     return jsonify({"error": "warehouse_id is required"}), 400
-
+ 
         # ✅ FIX: normalize status filter
-
+ 
         if status_filter and status_filter.upper() == "ALL":
             status_filter = None
 
         # =========================
-        # WORKSPACE SWITCHING LOGIC (NEW) for worspace filter 17/02
+            # WORKSPACE SWITCHING LOGIC (NEW) for worspace filter 17/02
         # =========================
-
+ 
         workspace_url = WORKSPACE_INSTANCE  # default
-
+ 
         if workspace_id:
             ACCOUNT_HOST = "https://accounts.cloud.databricks.com"
             ACCOUNT_ID = os.getenv("ACCOUNT_ID")
-
+ 
             headers = {
                 "Authorization": f"Bearer {get_dbx_access_token()}",
                 "Content-Type": "application/json",
             }
-
+ 
             ws_url = f"{ACCOUNT_HOST}/api/2.0/accounts/{ACCOUNT_ID}/workspaces/{workspace_id}"
             ws_resp = requests.get(ws_url, headers=headers, timeout=20)
             ws_resp.raise_for_status()
-
+ 
             workspace_data = ws_resp.json()
             deployment_name = workspace_data.get("deployment_name")
-
+ 
             if deployment_name:
                 workspace_instance = f"https://{deployment_name}.cloud.databricks.com"
-
+ 
         url = f"{workspace_instance}/api/2.0/sql/history/queries"
-
+ 
         headers = {
             "Authorization": f"Bearer {get_dbx_access_token()}",
             "Content-Type": "application/json",
@@ -1057,66 +1007,72 @@ def get_query_status():
             "max_results": 100,
             # "warehouse_id": warehouse_id
         }
-
+ 
         r = requests.get(url, headers=headers, params=params)
         # data = resp.json()
         # print("STATUS CODE:", r.status_code)
         # print("RAW RESPONSE:", data["res"])
         r.raise_for_status()
         data = r.json()
-
+ 
         # print("data222222222222222222222222222222222222222222222222222",data)
         # print(data["has_next_page"], data.get("next_page_token"))
         # for q in data["res"]:
         #     print(q["query_id"], q["status"], q.get("query_text", "")[:60])
-
+ 
         # resp.raise_for_status()
-
+ 
         queries = data.get("res", [])
         # print("TOTAL QUERIES FROM DBX:", queries)
         # print("resp", r)
-        # print("queries: ", queries[0].get("user_name"))
+        print("queries: " , queries[0].get("user_name"))
         results = []
-
+ 
         for q in queries:
             status = q.get("status")
             user_name = q.get("user_name") or ""
             query_warehouse = q.get("warehouse_id")
-
+ 
             # print("usernaeeeeeeeeeeeeeeeeeeee",user_name )
-
+ 
             if status_filter and status != status_filter:
                 continue
-
+ 
             # if user_filter and user_name != user_filter:
             #     continue
             if warehouse_id and warehouse_id != query_warehouse:
-                continue
-
+                 continue
+           
+           
             if user_filter:
                 if user_filter.strip().lower() not in user_name.lower():
                     continue
-
-            # existing duration logic below
-
+ 
+ 
+ 
+ 
+    # existing duration logic below
+ 
+ 
             start = q.get("query_start_time_ms")
             end = q.get("query_end_time_ms") or now_ms
             # print(f"start is {start} and end is {end}")
             if not start:
                 continue
-
+ 
             duration_sec = round((end - start) / 1000, 2)
             if min_duration_sec > 0 and duration_sec < min_duration_sec:
                 continue
-
+ 
             # if since_minutes:
             #     cutoff_ms = now_ms - (since_minutes * 60 * 1000)
             #     print("cutoff_ms: ", cutoff_ms)
             #     if start < cutoff_ms:
             #         continue
-
+ 
             # duration_sec = round((end - start) / 1000, 2)
             # print("duration_sec: ", duration_sec)
+            # print("append ke upar")
             results.append(
                 {
                     "query_id": q.get("query_id"),
@@ -1127,35 +1083,37 @@ def get_query_status():
                     "query_text": q.get("query_text"),
                 }
             )
-
-        # print("RESULTSSSSSS_before sortin", results)
-
+ 
+        # print("RESULTSSSSSS_before sortin",results)
+ 
         results.sort(key=lambda x: x["duration"], reverse=True)
-        # print("RESULTSSSSSS", results)
+        # print("RESULTSSSSSS",results)
         return jsonify(results)
-
+ 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
+ 
+ 
 def send_kill_email(
     to_email: str,
     query_id: str,
     original_query: str = None,
     optimized_query: str = None,
 ) -> dict:
-
+ 
     try:
         if not to_email:
             raise ValueError("Recipient email is required")
         if not query_id:
             raise ValueError("query_id is required")
-
+ 
         user_name = to_email.split("@")[0].replace(".", " ").title()
+        user_name = "Faguni Dhiman"
+        
         current_time = datetime.now().strftime("%d-%b-%Y %I:%M %p")
-
+ 
         subject = "Databricks Query Terminated – Optimization Suggested"
-
+ 
         # -------- Plain Text Fallback --------
         text_body = f"""
 Dear {user_name},
@@ -1180,7 +1138,7 @@ https://learn.microsoft.com/en-us/azure/databricks/optimizations/
 Thanks,
 Lakehouse Team
 """.strip()
-
+ 
         # -------- HTML Version --------
         html_body = f"""
 <html>
@@ -1205,7 +1163,7 @@ Lakehouse Team
       </tr>
       <tr>
         <td>{datetime.now().strftime("%d-%b-%Y %I:%M %p")}</td>
-        <td>{to_email}</td>
+        <td>faguni.dhiman@exponentia.ai</td>
         <td>{query_id}</td>
         <td style="color: red; font-weight: bold;">KILLED</td>
       </tr>
@@ -1264,11 +1222,29 @@ Lakehouse Team
       word-wrap: break-word;
       overflow-wrap: break-word;
       line-height: 1.5;
-
   ">
-    {optimized_query or "Optimization not available"}
+    {(optimized_query.get("optimized_query") if isinstance(optimized_query, dict) else optimized_query) or "Optimization not available"}
   </div>
 </div>
+
+<!-- Explanation Section -->
+<div style="margin-top: 22px;">
+  <div style="font-weight: bold; font-size: 14px; margin-bottom: 6px;">
+    Optimization Explanation
+  </div>
+
+  <div style="
+      background-color: #f8fafc;
+      border-left: 5px solid #10b981;
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #1f2937;
+  ">
+    {(optimized_query.get("explanation") if isinstance(optimized_query, dict) else "") or "Explanation not available"}
+  </div>
+</div>
+
  
   </tr>
 </table>
@@ -1308,25 +1284,25 @@ Lakehouse Team
   </body>
 </html>
 """
-
+ 
         msg = Message(
             subject=subject,
             recipients=[to_email],
             body=text_body,
             html=html_body,
         )
-
+ 
         mail.send(msg)
-
+ 
         print(f"[MAIL] Optimization email sent to {to_email} for query {query_id}")
         return {"status": "success", "message": f"Email sent to {to_email}"}
-
+ 
     except Exception as e:
         print("[MAIL] Failed to send kill email:", str(e))
-        return {"status": "failed", "message": str(e)}
+        return {"status": "failed", "message": str(e)} 
+ 
 
-
-###########################
+ ###########################
 def extract_tables_from_query(sql: str) -> list:
     """
     Extract table names from SQL query.
@@ -1348,7 +1324,6 @@ def extract_tables_from_query(sql: str) -> list:
 
     return unique_tables
 
-
 def describe_table(table_name: str, workspace_instance: str) -> dict:
     """
     Run DESCRIBE DETAIL in Databricks SQL
@@ -1357,13 +1332,13 @@ def describe_table(table_name: str, workspace_instance: str) -> dict:
 
     headers = {
         "Authorization": f"Bearer {get_dbx_access_token()}",
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
     }
 
     payload = {
         "statement": f"DESCRIBE DETAIL {table_name}",
         "warehouse_id": os.getenv("SQL_WAREHOUSE_ID"),
-        "disposition": "INLINE",
+        "disposition": "INLINE"
     }
 
     resp = requests.post(url, headers=headers, json=payload, timeout=30)
@@ -1373,15 +1348,16 @@ def describe_table(table_name: str, workspace_instance: str) -> dict:
     columns = []
     for row in data.get("result", {}).get("data_array", []):
         if len(row) >= 2:
-            columns.append(
-                {
-                    "column": row[0],
-                    "type": row[1],
-                    "comment": row[2] if len(row) > 2 else "",
-                }
-            )
+            columns.append({
+                "column": row[0],
+                "type": row[1],
+                "comment": row[2] if len(row) > 2 else ""
+            })
 
-    return {"table": table_name, "columns": columns}
+    return {
+        "table": table_name,
+        "columns": columns
+    }
 
 
 def build_schema_context(tables: list, workspace_instance: str) -> str:
@@ -1402,12 +1378,14 @@ def build_schema_context(tables: list, workspace_instance: str) -> str:
 
     return schema_text.strip()
 
-
-def get_optimized_query_from_ai(original_query: str) -> str:
+def get_optimized_query_from_ai(original_query: str) -> dict:
     print("[AI] Optimizing query with schema awareness")
 
     if not original_query:
-        return "No query text available for optimization."
+        return {
+            "optimized_query": "",
+            "explanation": "No query provided for optimization."
+        }
 
     # 1) Extract tables
     tables = extract_tables_from_query(original_query)
@@ -1416,106 +1394,42 @@ def get_optimized_query_from_ai(original_query: str) -> str:
     # 2) Fetch schemas
     schema_context = build_schema_context(tables, WORKSPACE_INSTANCE)
 
-    # 3) Build enriched prompt
+    # 3) Build strict JSON prompt
     prompt = f"""
 You are a principal data engineer specializing in Databricks performance optimization and large-scale distributed query processing.
+
 You are given:
+1) A full SQL query
+2) Table schemas and metadata (DESCRIBE DETAIL)
 
-A full SQL query that is currently slow, inefficient, or resource-heavy
-
-Table schemas with full metadata (DESCRIBE TABLE and DESCRIBE DETAIL output), including:
-
-column names
-
-data types
-
-partition columns
-
-table size
-
-file format
-
-storage location
-
-table type (Delta/External/Managed)
-
-statistics if available
 Your task:
-Generate a fully optimized SQL query that produces the same result set as the original query, but is optimized for Databricks execution.
+Generate a fully optimized SQL query that produces the same result set as the original query.
 
-You must optimize using the following strategies:
-
-Performance optimization
-
-Correct join ordering and join strategy
-
-Predicate pushdown
-
-Column pruning
-
-Partition pruning
-
-Broadcast joins where applicable
-
-Data skipping
-
-CTE optimization
-
-Removal of unnecessary subqueries
-
-Avoidance of SELECT *
-
-Efficient aggregation patterns
-
-Early filtering
-
-Pre-aggregation before joins
-
-Shuffle minimization
-
-Scan reduction
-
-Reduced data movement
-
-Memory-efficient execution
-
-Execution plan simplification
+Optimization strategies:
+Performance optimization, join strategy, predicate pushdown, column pruning, partition pruning,
+broadcast joins, data skipping, CTE optimization, shuffle minimization, scan reduction,
+early filtering, pre-aggregation, memory-efficient execution, execution plan simplification.
 
 Rules:
+- Do not change business logic
+- Do not change final result structure
+- Do not hallucinate columns or tables
+- Do not introduce new tables
+- No markdown
+- No comments
+- No headings
+- No bullets
+- No formatting symbols
+- Output JSON only
+- No text outside JSON
 
-Return the full optimized SQL query
+Return output strictly in this JSON format:
 
-Then return one paragraph explanation describing why the optimized query is better
+{{
+  "optimized_query": "<full optimized SQL>",
+  "explanation": "<single paragraph explanation>"
+}}
 
-The optimized query must be logically equivalent to the original query
-
-Preserve the business logic and output semantics
-
-Do not remove required computations
-
-Do not change the final result structure
-
-Do not hallucinate columns or tables
-
-Do not introduce new tables
-
-Do not use markdown
-
-Do not use bullet points
-
-Do not use comments
-
-Do not include headings
-
-Do not include formatting symbols
-
-Output must be plain text only
-
-Output format:
-
-<OPTIMIZED_SQL_QUERY>
-
-<ONE_PARAGRAPH_EXPLANATION>
 =====================
 TABLE SCHEMAS:
 {schema_context}
@@ -1530,45 +1444,67 @@ QUERY:
             prompt,
             generation_config={
                 "temperature": 0.05,
-                "max_output_tokens": 1500,
+                "max_output_tokens": 8192,   # 🔥 CRITICAL FIX
             },
         )
 
-        optimized_query = response.text.strip()
+        raw = response.text.strip()
+
+        # 🔐 Safe JSON parse
+        try:
+            ai_output = json.loads(raw)
+            optimized_sql = ai_output.get("optimized_query", "").strip()
+            explanation = ai_output.get("explanation", "").strip()
+        except Exception as json_err:
+            print("❌ JSON parse failed:", json_err)
+            print("Raw AI output:\n", raw)
+            return {
+                "optimized_query": raw,
+                "explanation": "AI returned non-JSON output."
+            }
 
         print("\n========== AI OPTIMIZATION (SCHEMA AWARE) ==========")
         print("----- ORIGINAL QUERY -----")
         print(original_query)
         print("\n----- OPTIMIZED QUERY -----")
-        print(optimized_query)
+        print(optimized_sql)
+        print("\n----- EXPLANATION -----")
+        print(explanation)
         print("===========================================\n")
 
-        return optimized_query
+        return {
+            "optimized_query": optimized_sql,
+            "explanation": explanation
+        }
 
     except Exception as e:
         print(f"[WARN] AI optimization failed: {e}")
-        return "AI optimization failed."
+        return {
+            "optimized_query": "",
+            "explanation": "AI optimization failed."
+        }
+
 
 
 # def get_optimized_query_from_ai(original_query: str) -> str:
 #     print("[AI] Optimizing query")
-
+ 
 #     if not original_query:
 #         return "No query text available for optimization."
-
+ 
 #     prompt = f"""
 # You are a senior data engineer.
 # Optimize the following Databricks SQL query for performance.
-
+ 
 # Rules:
 # - Return ONLY the optimized SQL query
 # - No explanations
 # - Assume the query is slow and optimize aggressively
-
+ 
 # QUERY:
 # {original_query}
 # """
-
+ 
 #     try:
 #         response = model.generate_content(
 #             prompt,
@@ -1585,14 +1521,14 @@ QUERY:
 #         print("\n----- OPTIMIZED QUERY -----")
 #         print(optimized_query)
 #         print("===========================================\n")
-
+ 
 #         return optimized_query
-
+ 
 #     except Exception as e:
 #         print(f"[WARN] AI optimization failed: {e}")
 #         return "AI optimization failed."
-
-
+  
+ 
 @app.route("/api/sql/warehouses", methods=["GET"])
 def list_sql_warehouses():
     try:
@@ -1600,63 +1536,68 @@ def list_sql_warehouses():
         url = f"{WORKSPACE_INSTANCE}/api/2.0/sql/warehouses"
         headers = {
             "Authorization": f"Bearer {get_dbx_access_token()}",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
         }
-
+ 
         r = requests.get(url, headers=headers)
-        print("r ", r)
+        print("r ",r)
         r.raise_for_status()
-
+ 
         data = r.json()
-        print("data", data)
+        print("data",data)
         warehouses = data.get("warehouses", [])
-
-        return jsonify([{"id": w.get("id"), "name": w.get("name")} for w in warehouses])
-
+ 
+        return jsonify([
+    {
+        "id": w.get("id"),
+        "name": w.get("name")
+    }
+    for w in warehouses
+])
+ 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
+ 
 @app.route("/debug/me")
 def debug_me():
     url = f"{WORKSPACE_INSTANCE}/api/2.0/preview/scim/v2/Me"
-    headers = {
-        "Authorization": f"Bearer {get_dbx_access_token()}",
-        "Content-Type": "application/json",
-    }
+    headers= {
+            "Authorization": f"Bearer {get_dbx_access_token()}",
+            "Content-Type": "application/json"
+        }
     resp = requests.get(url, headers=headers)
     print("BACKEND /me RESPONSE:", resp.text)
     return resp.text, resp.status_code
-
+ 
 
 def send_job_failure_or_cancel_mail(run_id):
     try:
         headers = {
             "Authorization": f"Bearer {get_dbx_access_token()}",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
         }
-
+ 
         # Get full run details
         url = f"{WORKSPACE_INSTANCE}/api/2.1/jobs/runs/get"
         resp = requests.get(url, headers=headers, params={"run_id": run_id}, timeout=30)
         resp.raise_for_status()
-
+ 
         run = resp.json()
         state = run.get("state", {})
-
+ 
         status = state.get("result_state") or state.get("life_cycle_state")
-
+ 
         #  Only send for FAILED or CANCELED
         if status not in ["FAILED", "CANCELED"]:
             return
-
+ 
         job_name = run.get("run_name")
         reason = state.get("state_message", "No details provided")
         user_email = run.get("creator_user_name")
         run_url = run.get("run_page_url")
-
+ 
         subject = f"Databricks Job {status}: {job_name}"
-
+ 
         html_body = f"""
         <h3>Databricks Job Alert</h3>
         <table border="1" cellpadding="8" cellspacing="0">
@@ -1668,18 +1609,18 @@ def send_job_failure_or_cancel_mail(run_id):
                 <td><a href="{run_url}">Open Job Run</a></td></tr>
         </table>
         """
-
+ 
         msg = Message(
             subject=subject,
-            recipients=["faguni.dhiman@exponentia.ai"],  # TO
-            # cc=[os.getenv("EMAIL_FROM")],
-            html=html_body,
+            recipients=["faguni.dhiman@exponentia.ai"],          #TO
+            #cc=[os.getenv("EMAIL_FROM")],                        
+            html=html_body
         )
-
+ 
         mail.send(msg)
-
+ 
         print("Mail sent successfully")
-
+ 
     except Exception as e:
         print("Mail error:", str(e))
 
@@ -1693,17 +1634,17 @@ def list_workspaces():
             "Authorization": f"Bearer {get_dbx_access_token()}",
             "Content-Type": "application/json",
         }
-
+ 
         ACCOUNT_HOST = "https://accounts.cloud.databricks.com"
         ACCOUNT_ID = os.getenv("ACCOUNT_ID")
-
+ 
         url = f"{ACCOUNT_HOST}/api/2.0/accounts/{ACCOUNT_ID}/workspaces"
-
+ 
         resp = requests.get(url, headers=headers, timeout=20)
         resp.raise_for_status()
-
+ 
         data = resp.json()
-
+ 
         # Handle both response formats safely
         if isinstance(data, dict):
             workspaces = data.get("workspaces", [])
@@ -1711,7 +1652,7 @@ def list_workspaces():
             workspaces = data
         else:
             workspaces = []
-
+ 
         result = [
             {
                 "workspace_id": ws.get("workspace_id"),
@@ -1719,96 +1660,26 @@ def list_workspaces():
             }
             for ws in workspaces
         ]
-
+ 
         return jsonify(result)
-
+ 
     except Exception as e:
         print("Workspace fetch error:", str(e))
         return jsonify({"error": str(e)}), 500
 
-
-# -----------------------------------------------------
-#  Allows frontend to fetch catalogs securely via backend  :- added by roshan DQM
-# -----------------------------------------------------
-@app.route("/api/catalogs", methods=["GET"])
-def list_catalogs():
-    try:
-        from databricks_api import get_all_catalogs
-
-        catalogs = get_all_catalogs() or []
-        # Remove internal catalogs
-        catalogs = [c for c in catalogs if c and c.lower() not in ["system"]]
-        # Sort alphabetically
-        catalogs.sort()
-        return jsonify(catalogs)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# -----------------------------------------------------
-#  Allows frontend to fetch schema(catalog) securely via backend  :- added by roshan DQM
-# -----------------------------------------------------
-@app.route("/api/schemas", methods=["GET"])
-def list_schemas():
-    try:
-        catalog = request.args.get("catalog")
-        from databricks_api import get_schemas_for_catalog
-
-        schemas = get_schemas_for_catalog(catalog)
-        # Sort alphabetically
-        schemas.sort()
-        return jsonify(schemas)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# --------------------------------------------------------------------------------------------
-# API to return tables for selected catalog and schema :- added by roshan DQM
-# --------------------------------------------------------------------------------------------
-@app.route("/api/tables", methods=["GET"])
-def list_tables():
-    try:
-        catalog = request.args.get("catalog")
-        schema = request.args.get("schema")
-
-        from databricks_api import get_tables_for_schema
-
-        tables = get_tables_for_schema(catalog, schema)
-        # Sort alphabetically
-        tables.sort()
-        return jsonify(tables)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# -----------------------------------------------------
-# Get columns with datatype for selected timeseries table  -- added by Roshan DQM
-# -----------------------------------------------------
-@app.route("/api/table-columns", methods=["GET"])
-def get_table_columns():
-    try:
-        catalog = request.args.get("catalog")
-        schema = request.args.get("schema")
-        table = request.args.get("table")
-
-        if not catalog or not schema or not table:
-            return jsonify([])
-
-        full_table = f"{catalog}.{schema}.{table}"
-
-        from databricks_api import describe_table_schema
-
-        columns = describe_table_schema(full_table)
-
-        return jsonify(columns)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# -------------------------------------------------------------------------------------
+    
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    app.run(
+        host="0.0.0.0",
+        port=8080,
+        debug=True
+    )
+
 
 
 # end of the file
+
+
+
+
+
