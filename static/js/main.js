@@ -608,8 +608,8 @@ dashboardChecks.forEach((checkbox) => {
     if (!confirmed) return;
 
     try {
-      alert(queryId);
-      alert(user);
+      // alert(queryId);
+      // alert(user);
       const res = await fetch("/api/query/kill", {
         method: "POST",
         headers: {

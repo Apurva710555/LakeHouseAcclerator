@@ -909,7 +909,7 @@ def kill_query():
         if result.get("status") != "success":
             return jsonify(result), 409  # conflict / invalid state
 
-        # Made changes to send the kill response first and then optimization part and send mail - Query Data 25-2-26
+        # Made changes to send the kill response first and then optimization part and send mail - Query Data 25-2-2
         thread = threading.Thread(
             target=background_tasks,
             args=(query_id, user, original_query),
